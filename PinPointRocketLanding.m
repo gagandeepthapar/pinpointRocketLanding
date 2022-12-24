@@ -1,5 +1,4 @@
-%% Gagandeep Thapar & Anuj Sanghvi
-
+%% Gagandeep Thapar 
 % AERO 560: Final
 % Convex Optimization Implementation:
         % Convex Optimization for Trajectory Generation: A Tutorial on Generating

@@ -8,11 +8,13 @@ Several suboptimal solutions were found (data can be found in **mat_files** dire
 Dynamics of the rocket were encoded as individual constraints at each time step constrained by the amount of propellant onboard the vehicle. A standard state propagator was used, dissimilar to the approach in the paper, to define how the state changes over time.
 
 Some interesting trajectories were generated such as a subsurface flight (violation of the glideslope constraints)
+
 ![subsurface_2d](media/subsurface_2dlanding.png)
 ![subsurface_3d](media/subsurface_3dlanding.png)
 ![subsurface_dims](media/subsurface_dimensionlanding.png)
 
 and a technically feasible trajectory that approaches the ground vertically instead of following the glideslope closer
+
 ![feasible_2d](media/2dlanding.png)
 ![feasible_3d](media/3dlanding.png)
 ![feasible_dim](media/dimensionlanding.png)
