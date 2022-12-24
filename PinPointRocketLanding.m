@@ -52,21 +52,21 @@ tFlight = (rocket.m_wet - rocket.m_dry)/(rocket.alpha*rocket.thrust_min);
 
 %% PDG FFT
 
-delt = 1;
+delt = 1;   % [sec] step time
 tFlight = round(tFlight);
 t = 0:delt:tFlight;
 
-iters = (tFlight)/delt + 1;
+simSz = (tFlight)/delt + 1;
 
-r = zeros(iters,3);
-v = zeros(iters,3);
-m = zeros(iters,1);
+r = zeros(simSz,3);
+v = zeros(simSz,3);
+m = zeros(simSz,1);
 
 r(1,:) = rocket.pos_initial;
 v(1,:) = rocket.vel_initial;
 m(1) = rocket.m_wet;
 
-
+% scaling variables
 s_r = zeros(1,3);
 S_r = diag([max(1, abs(r(1,1))), max(1, abs(r(1,2))), max(1, abs(r(1,3)))]);
 s_v = zeros(1,3);
@@ -80,6 +80,7 @@ S_u = diag([rocket.thrust_max/rocket.m_dry*sind(rocket.pointing_max), ...
 s_zeta = s_u(3);
 S_zeta = S_u(3,3);
 
+% glideslope information
 H_gs = [cosd(rocket.approach_max), 0, -sind(rocket.approach_max);
         -cosd(rocket.approach_max), 0, -sind(rocket.approach_max);
         0, cosd(rocket.approach_max), -sind(rocket.approach_max);
@@ -89,18 +90,18 @@ h_gs = zeros(4,1);
 
 % PDG setup
 pdg = optimproblem;
-r_s = optimvar('r_s', 3, iters);
-v_s = optimvar('v_s', 3, iters);
-z_s = optimvar('z_s', 1, iters);
-u_s = optimvar('u_s', 3, iters-1);
-zeta_s = optimvar('zeta_s', 1, iters-1);
+r_s = optimvar('r_s', 3, simSz);
+v_s = optimvar('v_s', 3, simSz);
+z_s = optimvar('z_s', 1, simSz);
+u_s = optimvar('u_s', 3, simSz-1);
+zeta_s = optimvar('zeta_s', 1, simSz-1);
 
 % Scaling
-r = (S_r*r_s) + repmat(s_r, iters,1)';
-v = (S_v*v_s) + repmat(s_v, iters,1)';
-z = (S_z*z_s) + repmat(s_z, iters,1)';
-u = (S_u*u_s) + repmat(s_u, iters-1,1)';
-zeta = (S_zeta*zeta_s) + repmat(s_zeta, iters-1,1)';
+r = (S_r*r_s) + repmat(s_r, simSz,1)';
+v = (S_v*v_s) + repmat(s_v, simSz,1)';
+z = (S_z*z_s) + repmat(s_z, simSz,1)';
+u = (S_u*u_s) + repmat(s_u, simSz-1,1)';
+zeta = (S_zeta*zeta_s) + repmat(s_zeta, simSz-1,1)';
 
 % initial and final constraints
 r0 = optimconstr(1);
@@ -125,27 +126,23 @@ pdg.Constraints.rF = rF;
 pdg.Constraints.vF = vF;
 pdg.Constraints.zF = zF;
 
-dynamicConstraint = optimconstr(iters-1,7);
-thrustMinConstraint = optimconstr(iters-1, 1);
-thrustMaxConstraint = optimconstr(iters-1, 1);
-massMinConstraint = optimconstr(iters, 1);
-massMaxConstraint = optimconstr(iters, 1);
-glideslopeConstraint = optimconstr(iters, 4);
-attitudeConstraint = optimconstr(iters-1,3);
-% maxVelConstraint = optimconstr(iters, 1);
-% subsurfaceConstraint = optimconstr(iters-1,1);
+dynamicConstraint = optimconstr(simSz-1,7);
+thrustMinConstraint = optimconstr(simSz-1, 1);
+thrustMaxConstraint = optimconstr(simSz-1, 1);
+massMinConstraint = optimconstr(simSz, 1);
+massMaxConstraint = optimconstr(simSz, 1);
+glideslopeConstraint = optimconstr(simSz, 4);
+attitudeConstraint = optimconstr(simSz-1,3);
 
 [A,B,p] = discretize(rocket, delt);
 
 % time-based constraints
-for i = 1:iters-1
+for i = 1:simSz-1
 
     % dynamic constraints
     dynamicConstraint(i,1:3) = r(:,i+1)    == r(:,i) + (v(:,i))*delt;
     dynamicConstraint(i,4:6) = v(:,i+1)    == v(:,i) + ((zeta(i)*u(:,i)/z(i)) + rocket.g')*delt;
     dynamicConstraint(i,7)   = z(i+1)      == (z(i)) - log(rocket.alpha*zeta(i)*delt);
-
-%     subsurfaceConstraint(i,:) = r(3,i) >= 0;
 
     % thrust
     zNOT = log(rocket.m_wet - rocket.alpha*rocket.thrust_max*t(i));
@@ -160,7 +157,7 @@ for i = 1:iters-1
     massMinConstraint(i) = zNOT <= z(i);
     massMaxConstraint(i) = z(i) <= log(rocket.m_wet - rocket.alpha*rocket.thrust_min*t(i));
 
-%     glideslope
+    % glideslope
     glideslopeConstraint(i,:) = H_gs*(r(:,i)) <= h_gs;
 
     % attitude
@@ -168,20 +165,14 @@ for i = 1:iters-1
 
 end
 
-%     velmax
-%     maxVelConstraint(i) = norm(v(:,i)) <= rocket.vel_max;ﬁ
-
 % final state constraints
 % mass
-    zNOT = log(rocket.m_wet - rocket.alpha*rocket.thrust_max*t(iters));
+    zNOT = log(rocket.m_wet - rocket.alpha*rocket.thrust_max*t(simSz));
     massMinConstraint(end) = zNOT <= z(end);
     massMaxConstraint(end) = z(end) <= log(rocket.m_wet - rocket.alpha*rocket.thrust_min*t(end));
 
 % glideslope
     glideslopeConstraint(end,:) = H_gs*(r(:,end)) <= h_gs;
-
-% velocity
-%     maxVelConstraint(end) = norm(v(:,end)) <= rocket.vel_max;
 
 disp('post')
 
@@ -192,18 +183,16 @@ pdg.Constraints.massMinConstraint = massMinConstraint;
 pdg.Constraints.massMaxConstraint = massMaxConstraint;
 pdg.Constraints.attitudeConstraint = attitudeConstraint;
 pdg.Constraints.glideslopeConstraint = glideslopeConstraint;
-% pdg.Constraints.subsurfaceConstraint = subsurfaceConstraint;
-% pdg.Constraints.maxVelConstraint = maxVelConstraint;
 
 pdg.Objective = sum(zeta);
 
 %%
 
-x0.r_s = zeros(3, iters);
-x0.u_s = zeros(3, iters-1);
-x0.v_s = zeros(3, iters);
-x0.z_s = zeros(1, iters);
-x0.zeta_s = zeros(1, iters-1);
+x0.r_s = zeros(3, simSz);
+x0.u_s = zeros(3, simSz-1);
+x0.v_s = zeros(3, simSz);
+x0.z_s = zeros(1, simSz);
+x0.zeta_s = zeros(1, simSz-1);
 
 x0.r_s(:,1) = ones(3,1);
 x0.v_s(:,1) = [1;1;-1];
@@ -230,7 +219,6 @@ else
 end
 toc
 
-% solution = [r, v, z, u, zeta, m];
 
 %% Plots
 close all
@@ -328,67 +316,4 @@ function [A,B,p] = discretize(rocket, delT)
     p = M(1:rocket.n, rocket.n+rocket.m+1);
 
 end
-
-function solution = simulate(rocket, control, tFlight)
-
-dynamics = @(t,x) rocket.A_c*x + rocket.B_c*control(t, x, rocket) + rocket.p_c;
-x0 = [rocket.pos_initial;rocket.vel_initial;log(rocket.m_wet)];
-t_step = 0.01;
-
-tspan = 0:t_step:tFlight;
-[time, dstate] = ode45(@dynamics, tspan, x0);
-
-U = [];
-for i = 1:length(time)
-    U = [U, control(t(i), dstate(i,:), rocket)];
-end
-
-N = length(time);
-
-% save solution
-
-r = dstate(:,1:3);
-v = dstate(:,4:6);
-z = dstate(:,7);
-u = U(:,1:3);
-zeta = U(:,4);
-
-m = exp.(z);
-
-T = [];
-for i = 1:3
-    T = [T, m.*u(:,i)];
-end
-T = T';
-
-T_nrm = zeros(N,1);
-for i = 1:N
-   T_nrm(i) = norm(T(i,:));
-end
-
-gamma = zeros(N,1);
-
-for i = 1:N
-    gamma(i) = acosd(dot(T(i,:), [0;0;1])/(norm(T(i,:))));
-end
-
-solution.time = t;
-solution.pos = r;
-solution.vel = v;
-solution.log_mass = z;
-solution.accel = u;
-solution.accel_mag = zeta;
-solution.cost = 0;
-solution.Thrust_traj = T;
-solution.Thrust_nrm = T_nrm;
-solution.mass = m;
-solution.point = gamma;
-
-end
-
-function solution = solve_pdg_fft(rocket, tFlight, delt)
-
-
-end
-
 
