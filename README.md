@@ -6,13 +6,19 @@ Trajectory generation of an arbitrary rocket following the path laid out in *Con
 ## Approach and Misc. Notes
 Dynamics of the rocket were encoded as individual constraints at each time step constrained by the amount of propellant onboard the vehicle. A standard state propagator was used, dissimilar to the approach in the paper, to define how the state changes over time.
 
+A feasible trajectory was generated using simplified dynamics of the rocket and mass modeling. This trajectory was found to be similar to that in the paper, although requires additional work to achieve full reconciliation.
+
+![feasible_3d](media/feasible_3d.png)
+![feasible_2d](media/feasible_downrange.png)
+![feasible_dim](media/feasible_traj.png)
+
 Some interesting trajectories were generated such as a subsurface flight (violation of the glideslope constraints)
 
 ![subsurface_2d](media/subsurface_2dlanding.png)
 ![subsurface_3d](media/subsurface_3dlanding.png)
 ![subsurface_dims](media/subsurface_dimensionlanding.png)
 
-and a technically feasible trajectory that approaches the ground vertically instead of following the glideslope closer
+and a technically feasible trajectory that approaches the ground vertically instead of following the glideslope closer. This is very clearly a suboptimal trajectory.
 
 ![feasible_2d](media/2dlanding.png)
 ![feasible_3d](media/3dlanding.png)
